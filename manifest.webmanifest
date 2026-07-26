@@ -1,0 +1,26 @@
+{
+  "name": "Baby Babble",
+  "short_name": "Baby Babble",
+  "description": "A private standalone Baby Babble translator.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eff6ff",
+  "theme_color": "#dbeafe",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

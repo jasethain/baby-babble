@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#dbeafe" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Baby Babble" />
+  <meta name="description" content="A private, standalone Baby Babble translator for iPhone." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+  <title>Baby Babble</title>
+  <style>
+    :root {
+      --ink: #183153;
+      --muted: #64748b;
+      --blue: #60a5fa;
+      --blue-deep: #2563eb;
+      --pink: #f9a8d4;
+      --cream: #fff7ed;
+      --card: rgba(255,255,255,.88);
+      --line: rgba(147,197,253,.45);
+      --shadow: 0 20px 50px rgba(30,58,138,.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(249,168,212,.34), transparent 28%),
+        radial-gradient(circle at 85% 18%, rgba(96,165,250,.32), transparent 32%),
+        linear-gradient(135deg, #fff1f7 0%, #eff6ff 52%, #fff7ed 100%);
+    }
+
+    body {
+      min-height: 100dvh;
+      padding:
+        max(18px, env(safe-area-inset-top))
+        max(14px, env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(14px, env(safe-area-inset-left));
+    }
+
+    .app {
+      width: min(720px, 100%);
+      margin: 0 auto;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 12px 8px 22px;
+    }
+
+    .hero-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 28px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 12px;
+      font-size: 48px;
+      background: linear-gradient(135deg, #ffffff, #dbeafe 62%, #fce7f3);
+      border: 1px solid rgba(255,255,255,.95);
+      box-shadow: 0 18px 38px rgba(37,99,235,.18);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 9vw, 54px);
+      letter-spacing: -1.5px;
+    }
+
+    .tagline {
+      margin: 8px auto 0;
+      max-width: 480px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,.95);
+      box-shadow: var(--shadow);
+      border-radius: 28px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .counter {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: rgba(248,251,255,.9);
+      color: var(--ink);
+      font: inherit;
+      font-size: 17px;
+      line-height: 1.45;
+      padding: 16px;
+      outline: none;
+      box-shadow: inset 0 2px 8px rgba(30,58,138,.04);
+    }
+
+    textarea:focus {
+      border-color: rgba(37,99,235,.62);
+      box-shadow: 0 0 0 4px rgba(96,165,250,.18);
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 6px;
+      background: rgba(219,234,254,.72);
+      border-radius: 18px;
+      margin: 14px 0;
+    }
+
+    .segmented button {
+      border: 0;
+      border-radius: 13px;
+      padding: 11px 8px;
+      font-weight: 800;
+      color: #475569;
+      background: transparent;
+    }
+
+    .segmented button.active {
+      color: #1e3a8a;
+      background: white;
+      box-shadow: 0 8px 18px rgba(30,58,138,.10);
+    }
+
+    .primary,
+    .secondary,
+    .ghost {
+      width: 100%;
+      border: 0;
+      border-radius: 18px;
+      padding: 15px 16px;
+      font: inherit;
+      font-weight: 850;
+      min-height: 52px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-deep));
+      color: white;
+      box-shadow: 0 14px 28px rgba(37,99,235,.24);
+    }
+
+    .secondary {
+      background: #eef6ff;
+      color: #1e3a8a;
+      border: 1px solid rgba(147,197,253,.45);
+    }
+
+    .ghost {
+      background: rgba(255,255,255,.75);
+      color: #475569;
+      border: 1px solid rgba(203,213,225,.7);
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .result {
+      min-height: 120px;
+      border-radius: 22px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(239,246,255,.95), rgba(252,231,243,.78));
+      border: 1px solid rgba(147,197,253,.45);
+      white-space: pre-wrap;
+      font-size: 18px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .placeholder { color: #94a3b8; }
+
+    .status {
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #2563eb;
+      min-height: 18px;
+      text-align: center;
+    }
+
+    .tips {
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .tip {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .tip span:first-child {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      display: grid;
+      place-items: center;
+      background: #dbeafe;
+      border-radius: 50%;
+      color: #1e3a8a;
+      font-weight: 900;
+    }
+
+    .privacy {
+      text-align: center;
+      color: #64748b;
+      font-size: 12px;
+      padding: 6px 12px 2px;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 15px; border-radius: 24px; }
+      .button-grid { grid-template-columns: 1fr; }
+      textarea { min-height: 138px; }
+    }
+
+    @media (display-mode: standalone) {
+      .install-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div class="hero-icon" aria-hidden="true">🍼</div>
+      <h1>Baby Babble</h1>
+      <p class="tagline">Turn ordinary text into playful baby babble, then copy or share it into Messenger.</p>
+    </section>
+
+    <section class="card">
+      <div class="label-row">
+        <label for="inputText">Normal text</label>
+        <span id="inputCount" class="counter">0 characters</span>
+      </div>
+
+      <textarea
+        id="inputText"
+        maxlength="2000"
+        autocapitalize="sentences"
+        autocomplete="off"
+        spellcheck="true"
+        placeholder="Type something here..."
+      ></textarea>
+
+      <div class="segmented" role="group" aria-label="Babble level">
+        <button type="button" data-level="light">Light</button>
+        <button type="button" data-level="medium" class="active">Medium</button>
+        <button type="button" data-level="full">Full</button>
+      </div>
+
+      <button id="convertBtn" class="primary" type="button">✨ Convert to Baby Babble</button>
+    </section>
+
+    <section class="card">
+      <div class="label-row">
+        <label>Baby Babble result</label>
+        <span id="resultCount" class="counter">0 characters</span>
+      </div>
+
+      <div id="result" class="result placeholder">Your converted text will appear here.</div>
+
+      <div class="button-grid">
+        <button id="copyBtn" class="secondary" type="button">📋 Copy</button>
+        <button id="shareBtn" class="secondary" type="button">💬 Share</button>
+        <button id="speakBtn" class="ghost" type="button">🔊 Speak</button>
+        <button id="clearBtn" class="ghost" type="button">🧼 Clear</button>
+      </div>
+
+      <div id="status" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card install-hint">
+      <div class="label-row">
+        <label>Add it to your iPhone</label>
+      </div>
+
+      <div class="tips">
+        <div class="tip"><span>1</span><div>Open this page in <strong>Safari</strong>.</div></div>
+        <div class="tip"><span>2</span><div>Tap the Safari <strong>Share</strong> button.</div></div>
+        <div class="tip"><span>3</span><div>Choose <strong>Add to Home Screen</strong>.</div></div>
+        <div class="tip"><span>4</span><div>Open Baby Babble from its new Home Screen icon.</div></div>
+      </div>
+    </section>
+
+    <p class="privacy">Private by design. Your text stays on this device and is never uploaded.</p>
+  </main>
+
+  <script>
+    (() => {
+      const input = document.getElementById('inputText');
+      const inputCount = document.getElementById('inputCount');
+      const result = document.getElementById('result');
+      const resultCount = document.getElementById('resultCount');
+      const status = document.getElementById('status');
+      const levelButtons = [...document.querySelectorAll('[data-level]')];
+
+      let level = localStorage.getItem('babyBabbleLevel') || 'medium';
+      let lastResult = '';
+
+      function replaceRegex(text, pattern, replacement) {
+        return text.replace(pattern, replacement);
+      }
+
+      function applyRules(text, rules) {
+        return rules.reduce((current, [pattern, replacement]) => {
+          return replaceRegex(current, pattern, replacement);
+        }, text);
+      }
+
+      function softenSounds(text, intensity) {
+        const protectedWords = new Set([
+          'hewwo','widdle','fwend','fwends','wuv','pwease','sowwy','eepy',
+          'baba','wawa','milkie','nummies','hungy','diapie','me','yoo','evyone'
+        ]);
+
+        return text.replace(/\b[\p{L}']+\b/gu, (word) => {
+          if (protectedWords.has(word.toLowerCase())) return word;
+
+          let changed = word;
+
+          if (intensity >= 1 && changed.length >= 4) {
+            changed = changed.replace(/[rl]/gi, (m) => m === m.toUpperCase() ? 'W' : 'w');
+          }
+
+          if (intensity >= 2) {
+            changed = changed.replace(/^th/i, (m) => m === m.toUpperCase() ? 'D' : 'd');
+            changed = changed.replace(/th/gi, (m) => m === m.toUpperCase() ? 'F' : 'f');
+          }
+
+          return changed;
+        });
+      }
+
+      function babyBabble(text, selectedLevel) {
+        if (!text.trim()) return '';
+
+        const phraseRules = [
+          [/\bhello everyone\b/gi, 'hewwo evyone'],
+          [/\bhi everyone\b/gi, 'hewwo evyone'],
+          [/\bgood morning\b/gi, 'mownin'],
+          [/\bgood night\b/gi, 'nye-nye'],
+          [/\bthank you\b/gi, 'tank yoo'],
+          [/\bsee you later\b/gi, 'see yoo watew'],
+          [/\bi am tired\b/gi, 'me eepy'],
+          [/\bi'm tired\b/gi, 'me eepy'],
+          [/\bi am hungry\b/gi, 'me hungy'],
+          [/\bi'm hungry\b/gi, 'me hungy']
+        ];
+
+        const lightRules = [
+          [/\bhello\b/gi, 'hewwo'],
+          [/\bhi\b/gi, 'hewwo'],
+          [/\blittle\b/gi, 'widdle'],
+          [/\bfriends\b/gi, 'fwends'],
+          [/\bfriend\b/gi, 'fwend'],
+          [/\bplease\b/gi, 'pwease'],
+          [/\bsorry\b/gi, 'sowwy'],
+          [/\blove\b/gi, 'wuv']
+        ];
+
+        const mediumRules = [
+          ...lightRules,
+          [/\breally\b/gi, 'weally'],
+          [/\beveryone\b/gi, 'evyone'],
+          [/\bsleepy\b/gi, 'eepy'],
+          [/\btired\b/gi, 'eepy'],
+          [/\bblanket\b/gi, 'bwankie'],
+          [/\bbottle\b/gi, 'baba'],
+          [/\bwater\b/gi, 'wawa'],
+          [/\bmilk\b/gi, 'milkie'],
+          [/\bfood\b/gi, 'nummies'],
+          [/\bsnack\b/gi, 'snackie'],
+          [/\bhungry\b/gi, 'hungy'],
+          [/\bdiaper\b/gi, 'diapie'],
+          [/\bbecause\b/gi, 'cuz']
+        ];
+
+        const fullRules = [
+          ...mediumRules,
+          [/\bthis\b/gi, 'dis'],
+          [/\bthat\b/gi, 'dat'],
+          [/\bthere\b/gi, 'dere'],
+          [/\bthem\b/gi, 'dem'],
+          [/\bthey\b/gi, 'dey'],
+          [/\bwith\b/gi, 'wif'],
+          [/\byour\b/gi, 'you'],
+          [/\bmy\b/gi, 'me'],
+          [/\bi am\b/gi, 'me'],
+          [/\bi'm\b/gi, 'me']
+        ];
+
+        let output = applyRules(text, phraseRules);
+
+        if (selectedLevel === 'light') {
+          output = applyRules(output, lightRules);
+        } else if (selectedLevel === 'medium') {
+          output = softenSounds(applyRules(output, mediumRules), 1);
+        } else {
+          output = softenSounds(applyRules(output, fullRules), 2);
+        }
+
+        return output
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([,.!?])/g, '$1')
+          .trim();
+      }
+
+      function setStatus(message) {
+        status.textContent = message;
+        clearTimeout(setStatus.timer);
+        setStatus.timer = setTimeout(() => {
+          status.textContent = '';
+        }, 2500);
+      }
+
+      function updateCounts() {
+        inputCount.textContent = `${input.value.length} characters`;
+        resultCount.textContent = `${lastResult.length} characters`;
+      }
+
+      function renderResult(value) {
+        lastResult = value;
+        result.textContent = value || 'Your converted text will appear here.';
+        result.classList.toggle('placeholder', !value);
+        updateCounts();
+      }
+
+      function setLevel(nextLevel) {
+        level = nextLevel;
+        localStorage.setItem('babyBabbleLevel', level);
+        levelButtons.forEach((button) => {
+          button.classList.toggle('active', button.dataset.level === level);
+        });
+      }
+
+      levelButtons.forEach((button) => {
+        button.addEventListener('click', () => setLevel(button.dataset.level));
+      });
+
+      input.addEventListener('input', () => {
+        localStorage.setItem('babyBabbleDraft', input.value);
+        updateCounts();
+      });
+
+      document.getElementById('convertBtn').addEventListener('click', () => {
+        const converted = babyBabble(input.value, level);
+        renderResult(converted);
+        setStatus(converted ? 'Babble created ✨' : 'Type something first.');
+      });
+
+      document.getElementById('copyBtn').addEventListener('click', async () => {
+        if (!lastResult) {
+          setStatus('Nothing to copy yet.');
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(lastResult);
+          setStatus('Copied to clipboard.');
+        } catch {
+          const area = document.createElement('textarea');
+          area.value = lastResult;
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand('copy');
+          area.remove();
+          setStatus('Copied to clipboard.');
+        }
+      });
+
+      document.getElementById('shareBtn').addEventListener('click', async () => {
+        if (!lastResult) {
+          setStatus('Nothing to share yet.');
+          return;
+        }
+
+        if (navigator.share) {
+          try {
+            await navigator.share({ text: lastResult });
+          } catch (error) {
+            if (error.name !== 'AbortError') setStatus('Could not open sharing.');
+          }
+        } else {
+          await navigator.clipboard.writeText(lastResult);
+          setStatus('Copied. Paste it into Messenger.');
+        }
+      });
+
+      document.getElementById('speakBtn').addEventListener('click', () => {
+        if (!lastResult) {
+          setStatus('Nothing to speak yet.');
+          return;
+        }
+
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(lastResult);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.2;
+        speechSynthesis.speak(utterance);
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        input.value = '';
+        localStorage.removeItem('babyBabbleDraft');
+        renderResult('');
+        updateCounts();
+        input.focus();
+      });
+
+      setLevel(level);
+      input.value = localStorage.getItem('babyBabbleDraft') || '';
+      updateCounts();
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
