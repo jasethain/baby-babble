@@ -1,4 +1,4 @@
-const CACHE_NAME = 'baby-babble-v1';
+const CACHE_NAME = 'baby-babble-v2-voice';
 const FILES = [
   './',
   './index.html',
