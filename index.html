@@ -394,6 +394,11 @@
 
   <script>
     (() => {
+      window.addEventListener('error', () => {
+        const statusBox = document.getElementById('status');
+        if (statusBox) statusBox.textContent = 'The app had a small loading problem. Refresh once to reload the latest version.';
+      });
+
       const input = document.getElementById('inputText');
       const inputCount = document.getElementById('inputCount');
       const result = document.getElementById('result');
@@ -423,7 +428,7 @@
           'baba','wawa','milkie','nummies','hungy','diapie','me','yoo','evyone'
         ]);
 
-        return text.replace(/\b[\p{L}']+\b/gu, (word) => {
+        return text.replace(/\b[A-Za-z']+\b/g, (word) => {
           if (protectedWords.has(word.toLowerCase())) return word;
 
           let changed = word;
@@ -545,11 +550,12 @@
       let finalTranscript = '';
 
       function setMicStatus(message) {
-        micStatus.textContent = message;
+        if (micStatus) micStatus.textContent = message;
       }
 
       function setListeningState(isListening) {
         listening = isListening;
+        if (!voiceBtn) return;
         voiceBtn.classList.toggle('listening', isListening);
         voiceBtn.textContent = isListening ? '⏹ Stop Listening' : '🎤 Start Talking';
       }
@@ -558,7 +564,7 @@
         const clean = String(text || '').trim();
         if (!clean) return;
 
-        if (voiceMode.value === 'replace') {
+        if (voiceMode && voiceMode.value === 'replace') {
           input.value = clean;
         } else {
           const existing = input.value.trim();
@@ -569,73 +575,85 @@
         updateCounts();
       }
 
-      if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-AU';
-        recognition.continuous = true;
-        recognition.interimResults = true;
+      function enableKeyboardDictationFallback() {
+        if (!voiceBtn) return;
+        voiceBtn.disabled = false;
+        voiceBtn.textContent = '🎤 Use iPhone Dictation';
+        voiceBtn.addEventListener('click', () => {
+          input.focus();
+          setMicStatus('Tap the microphone on Apple’s keyboard and start speaking.');
+        });
+        setMicStatus('Direct voice recognition is unavailable here. Apple keyboard dictation still works.');
+      }
 
-        recognition.onstart = () => {
-          finalTranscript = '';
-          setListeningState(true);
-          setMicStatus('Listening… speak normally.');
-        };
+      try {
+        if (!SpeechRecognition) {
+          enableKeyboardDictationFallback();
+        } else {
+          recognition = new SpeechRecognition();
+          recognition.lang = 'en-AU';
+          recognition.continuous = false;
+          recognition.interimResults = true;
 
-        recognition.onresult = (event) => {
-          let interim = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += `${transcript} `;
-            } else {
-              interim += transcript;
-            }
-          }
-
-          setMicStatus(interim ? `Hearing: ${interim}` : 'Listening…');
-        };
-
-        recognition.onerror = (event) => {
-          const messages = {
-            'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
-            'service-not-allowed': 'Speech recognition is unavailable in this browser.',
-            'no-speech': 'No speech was detected. Try again.',
-            'audio-capture': 'No microphone was found.',
-            'network': 'Speech recognition needs a network connection on this device.'
+          recognition.onstart = () => {
+            finalTranscript = '';
+            setListeningState(true);
+            setMicStatus('Listening… speak normally.');
           };
 
-          setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
-          setListeningState(false);
-        };
+          recognition.onresult = (event) => {
+            let interim = '';
 
-        recognition.onend = () => {
-          if (finalTranscript.trim()) {
-            addVoiceText(finalTranscript);
-            setMicStatus('Voice text added.');
-          } else if (listening) {
-            setMicStatus('Listening stopped.');
-          }
+            for (let i = event.resultIndex; i < event.results.length; i += 1) {
+              const transcript = event.results[i][0].transcript;
+              if (event.results[i].isFinal) {
+                finalTranscript += `${transcript} `;
+              } else {
+                interim += transcript;
+              }
+            }
 
-          setListeningState(false);
-        };
+            setMicStatus(interim ? `Hearing: ${interim}` : 'Listening…');
+          };
 
-        voiceBtn.addEventListener('click', () => {
-          if (listening) {
-            recognition.stop();
-            return;
-          }
+          recognition.onerror = (event) => {
+            const messages = {
+              'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
+              'service-not-allowed': 'Speech recognition is unavailable in this browser.',
+              'no-speech': 'No speech was detected. Try again.',
+              'audio-capture': 'No microphone was found.',
+              'network': 'Speech recognition needs a network connection on this device.'
+            };
 
-          try {
-            recognition.start();
-          } catch {
-            setMicStatus('Voice input is already starting. Please wait a moment.');
-          }
-        });
-      } else {
-        voiceBtn.disabled = true;
-        voiceBtn.textContent = '🎤 Use iPhone Dictation';
-        setMicStatus('Direct voice recognition is unavailable here. Tap inside the text box and use the microphone on Apple’s keyboard.');
+            setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
+            setListeningState(false);
+          };
+
+          recognition.onend = () => {
+            if (finalTranscript.trim()) {
+              addVoiceText(finalTranscript);
+              setMicStatus('Voice text added.');
+            } else if (listening) {
+              setMicStatus('Listening stopped.');
+            }
+            setListeningState(false);
+          };
+
+          voiceBtn.addEventListener('click', () => {
+            if (listening) {
+              recognition.stop();
+              return;
+            }
+
+            try {
+              recognition.start();
+            } catch (error) {
+              setMicStatus('Voice input could not start. Tap the text box and use Apple keyboard dictation.');
+            }
+          });
+        }
+      } catch (error) {
+        enableKeyboardDictationFallback();
       }
 
       levelButtons.forEach((button) => {
