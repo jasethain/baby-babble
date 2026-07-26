@@ -256,6 +256,65 @@
       padding: 6px 12px 2px;
     }
 
+
+    .voice-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0 4px;
+    }
+
+    .voice-button {
+      width: 100%;
+      border: 0;
+      border-radius: 18px;
+      padding: 14px 16px;
+      min-height: 52px;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+      background: linear-gradient(135deg, #fce7f3, #dbeafe);
+      color: #1e3a8a;
+      border: 1px solid rgba(147,197,253,.45);
+    }
+
+    .voice-button.listening {
+      background: linear-gradient(135deg, #fee2e2, #fecdd3);
+      color: #9f1239;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    .voice-button:disabled {
+      opacity: .62;
+      cursor: not-allowed;
+    }
+
+    .voice-mode {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.9);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 750;
+      padding: 0 12px;
+      min-height: 52px;
+    }
+
+    .mic-status {
+      min-height: 20px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 750;
+      color: #2563eb;
+      margin-top: 7px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244,63,94,.18); }
+      50% { transform: scale(1.015); box-shadow: 0 0 0 8px rgba(244,63,94,0); }
+    }
+
     @media (max-width: 480px) {
       .card { padding: 15px; border-radius: 24px; }
       .button-grid { grid-template-columns: 1fr; }
@@ -272,7 +331,7 @@
     <section class="hero">
       <div class="hero-icon" aria-hidden="true">🍼</div>
       <h1>Baby Babble</h1>
-      <p class="tagline">Turn ordinary text into playful baby babble, then copy or share it into Messenger.</p>
+      <p class="tagline">Speak or type ordinary text, turn it into playful baby babble, then copy or share it into Messenger.</p>
     </section>
 
     <section class="card">
@@ -340,6 +399,9 @@
       const result = document.getElementById('result');
       const resultCount = document.getElementById('resultCount');
       const status = document.getElementById('status');
+      const voiceBtn = document.getElementById('voiceBtn');
+      const voiceMode = document.getElementById('voiceMode');
+      const micStatus = document.getElementById('micStatus');
       const levelButtons = [...document.querySelectorAll('[data-level]')];
 
       let level = localStorage.getItem('babyBabbleLevel') || 'medium';
@@ -476,9 +538,209 @@
       function setLevel(nextLevel) {
         level = nextLevel;
         localStorage.setItem('babyBabbleLevel', level);
-        levelButtons.forEach((button) => {
+  
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let listening = false;
+      let finalTranscript = '';
+
+      function setMicStatus(message) {
+        micStatus.textContent = message;
+      }
+
+      function setListeningState(isListening) {
+        listening = isListening;
+        voiceBtn.classList.toggle('listening', isListening);
+        voiceBtn.textContent = isListening ? '⏹ Stop Listening' : '🎤 Start Talking';
+      }
+
+      function addVoiceText(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return;
+
+        if (voiceMode.value === 'replace') {
+          input.value = clean;
+        } else {
+          const existing = input.value.trim();
+          input.value = existing ? `${existing} ${clean}` : clean;
+        }
+
+        localStorage.setItem('babyBabbleDraft', input.value);
+        updateCounts();
+      }
+
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-AU';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+          finalTranscript = '';
+          setListeningState(true);
+          setMicStatus('Listening… speak normally.');
+        };
+
+        recognition.onresult = (event) => {
+          let interim = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += `${transcript} `;
+            } else {
+              interim += transcript;
+            }
+          }
+
+          setMicStatus(interim ? `Hearing: ${interim}` : 'Listening…');
+        };
+
+        recognition.onerror = (event) => {
+          const messages = {
+            'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
+            'service-not-allowed': 'Speech recognition is unavailable in this browser.',
+            'no-speech': 'No speech was detected. Try again.',
+            'audio-capture': 'No microphone was found.',
+            'network': 'Speech recognition needs a network connection on this device.'
+          };
+
+          setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
+          setListeningState(false);
+        };
+
+        recognition.onend = () => {
+          if (finalTranscript.trim()) {
+            addVoiceText(finalTranscript);
+            setMicStatus('Voice text added.');
+          } else if (listening) {
+            setMicStatus('Listening stopped.');
+          }
+
+          setListeningState(false);
+        };
+
+        voiceBtn.addEventListener('click', () => {
+          if (listening) {
+            recognition.stop();
+            return;
+          }
+
+          try {
+            recognition.start();
+          } catch {
+            setMicStatus('Voice input is already starting. Please wait a moment.');
+          }
+        });
+      } else {
+        voiceBtn.disabled = true;
+        voiceBtn.textContent = '🎤 Use iPhone Dictation';
+        setMicStatus('Direct voice recognition is unavailable here. Tap inside the text box and use the microphone on Apple’s keyboard.');
+      }
+
+      levelButtons.forEach((button) => {
           button.classList.toggle('active', button.dataset.level === level);
         });
+      }
+
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let listening = false;
+      let finalTranscript = '';
+
+      function setMicStatus(message) {
+        micStatus.textContent = message;
+      }
+
+      function setListeningState(isListening) {
+        listening = isListening;
+        voiceBtn.classList.toggle('listening', isListening);
+        voiceBtn.textContent = isListening ? '⏹ Stop Listening' : '🎤 Start Talking';
+      }
+
+      function addVoiceText(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return;
+
+        if (voiceMode.value === 'replace') {
+          input.value = clean;
+        } else {
+          const existing = input.value.trim();
+          input.value = existing ? `${existing} ${clean}` : clean;
+        }
+
+        localStorage.setItem('babyBabbleDraft', input.value);
+        updateCounts();
+      }
+
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-AU';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+          finalTranscript = '';
+          setListeningState(true);
+          setMicStatus('Listening… speak normally.');
+        };
+
+        recognition.onresult = (event) => {
+          let interim = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i += 1) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += `${transcript} `;
+            } else {
+              interim += transcript;
+            }
+          }
+
+          setMicStatus(interim ? `Hearing: ${interim}` : 'Listening…');
+        };
+
+        recognition.onerror = (event) => {
+          const messages = {
+            'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
+            'service-not-allowed': 'Speech recognition is unavailable in this browser.',
+            'no-speech': 'No speech was detected. Try again.',
+            'audio-capture': 'No microphone was found.',
+            'network': 'Speech recognition needs a network connection on this device.'
+          };
+
+          setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
+          setListeningState(false);
+        };
+
+        recognition.onend = () => {
+          if (finalTranscript.trim()) {
+            addVoiceText(finalTranscript);
+            setMicStatus('Voice text added.');
+          } else if (listening) {
+            setMicStatus('Listening stopped.');
+          }
+
+          setListeningState(false);
+        };
+
+        voiceBtn.addEventListener('click', () => {
+          if (listening) {
+            recognition.stop();
+            return;
+          }
+
+          try {
+            recognition.start();
+          } catch {
+            setMicStatus('Voice input is already starting. Please wait a moment.');
+          }
+        });
+      } else {
+        voiceBtn.disabled = true;
+        voiceBtn.textContent = '🎤 Use iPhone Dictation';
+        setMicStatus('Direct voice recognition is unavailable here. Tap inside the text box and use the microphone on Apple’s keyboard.');
       }
 
       levelButtons.forEach((button) => {
