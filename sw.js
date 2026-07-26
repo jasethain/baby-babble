@@ -1,13 +1,13 @@
-const CACHE_NAME = 'baby-babble-v4-button-repair';
-const APP_SHELL = [
+const CACHE_NAME = 'baby-babble-v6-confirmed-fix';
+const STATIC_FILES = [
   './manifest.webmanifest',
+  './icons/apple-touch-icon.png',
   './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_FILES)));
   self.skipWaiting();
 });
 
@@ -23,11 +23,9 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  const isPage = event.request.mode === 'navigate';
-
-  if (isPage) {
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then(response => {
           const copy = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put('./index.html', copy));
@@ -39,12 +37,12 @@ self.addEventListener('fetch', event => {
   }
 
   event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached || fetch(event.request).then(response => {
+    caches.match(event.request).then(cached => {
+      return cached || fetch(event.request).then(response => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
         return response;
-      })
-    )
+      });
+    })
   );
 });
