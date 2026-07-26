@@ -394,10 +394,7 @@
 
   <script>
     (() => {
-      window.addEventListener('error', () => {
-        const statusBox = document.getElementById('status');
-        if (statusBox) statusBox.textContent = 'The app had a small loading problem. Refresh once to reload the latest version.';
-      });
+      'use strict';
 
       const input = document.getElementById('inputText');
       const inputCount = document.getElementById('inputCount');
@@ -407,25 +404,23 @@
       const voiceBtn = document.getElementById('voiceBtn');
       const voiceMode = document.getElementById('voiceMode');
       const micStatus = document.getElementById('micStatus');
-      const levelButtons = [...document.querySelectorAll('[data-level]')];
+      const levelButtons = Array.from(document.querySelectorAll('[data-level]'));
 
       let level = localStorage.getItem('babyBabbleLevel') || 'medium';
       let lastResult = '';
-
-      function replaceRegex(text, pattern, replacement) {
-        return text.replace(pattern, replacement);
-      }
+      let recognition = null;
+      let listening = false;
+      let finalTranscript = '';
 
       function applyRules(text, rules) {
-        return rules.reduce((current, [pattern, replacement]) => {
-          return replaceRegex(current, pattern, replacement);
-        }, text);
+        return rules.reduce((current, rule) => current.replace(rule[0], rule[1]), text);
       }
 
       function softenSounds(text, intensity) {
         const protectedWords = new Set([
-          'hewwo','widdle','fwend','fwends','wuv','pwease','sowwy','eepy',
-          'baba','wawa','milkie','nummies','hungy','diapie','me','yoo','evyone'
+          'hewwo', 'widdle', 'fwend', 'fwends', 'wuv', 'pwease', 'sowwy',
+          'eepy', 'baba', 'wawa', 'milkie', 'nummies', 'hungy', 'diapie',
+          'me', 'yoo', 'evyone'
         ]);
 
         return text.replace(/\b[A-Za-z']+\b/g, (word) => {
@@ -434,12 +429,18 @@
           let changed = word;
 
           if (intensity >= 1 && changed.length >= 4) {
-            changed = changed.replace(/[rl]/gi, (m) => m === m.toUpperCase() ? 'W' : 'w');
+            changed = changed.replace(/[rl]/gi, (match) =>
+              match === match.toUpperCase() ? 'W' : 'w'
+            );
           }
 
           if (intensity >= 2) {
-            changed = changed.replace(/^th/i, (m) => m === m.toUpperCase() ? 'D' : 'd');
-            changed = changed.replace(/th/gi, (m) => m === m.toUpperCase() ? 'F' : 'f');
+            changed = changed.replace(/^th/i, (match) =>
+              match === match.toUpperCase() ? 'D' : 'd'
+            );
+            changed = changed.replace(/th/gi, (match) =>
+              match === match.toUpperCase() ? 'F' : 'f'
+            );
           }
 
           return changed;
@@ -447,7 +448,7 @@
       }
 
       function babyBabble(text, selectedLevel) {
-        if (!text.trim()) return '';
+        if (!String(text || '').trim()) return '';
 
         const phraseRules = [
           [/\bhello everyone\b/gi, 'hewwo evyone'],
@@ -473,8 +474,7 @@
           [/\blove\b/gi, 'wuv']
         ];
 
-        const mediumRules = [
-          ...lightRules,
+        const mediumRules = lightRules.concat([
           [/\breally\b/gi, 'weally'],
           [/\beveryone\b/gi, 'evyone'],
           [/\bsleepy\b/gi, 'eepy'],
@@ -488,10 +488,9 @@
           [/\bhungry\b/gi, 'hungy'],
           [/\bdiaper\b/gi, 'diapie'],
           [/\bbecause\b/gi, 'cuz']
-        ];
+        ]);
 
-        const fullRules = [
-          ...mediumRules,
+        const fullRules = mediumRules.concat([
           [/\bthis\b/gi, 'dis'],
           [/\bthat\b/gi, 'dat'],
           [/\bthere\b/gi, 'dere'],
@@ -502,35 +501,37 @@
           [/\bmy\b/gi, 'me'],
           [/\bi am\b/gi, 'me'],
           [/\bi'm\b/gi, 'me']
-        ];
+        ]);
 
-        let output = applyRules(text, phraseRules);
+        let output = applyRules(String(text), phraseRules);
 
         if (selectedLevel === 'light') {
           output = applyRules(output, lightRules);
-        } else if (selectedLevel === 'medium') {
-          output = softenSounds(applyRules(output, mediumRules), 1);
-        } else {
+        } else if (selectedLevel === 'full') {
           output = softenSounds(applyRules(output, fullRules), 2);
+        } else {
+          output = softenSounds(applyRules(output, mediumRules), 1);
         }
 
-        return output
-          .replace(/\s+/g, ' ')
-          .replace(/\s+([,.!?])/g, '$1')
-          .trim();
+        return output.replace(/\s+/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
       }
 
       function setStatus(message) {
+        if (!status) return;
         status.textContent = message;
-        clearTimeout(setStatus.timer);
-        setStatus.timer = setTimeout(() => {
+        window.clearTimeout(setStatus.timer);
+        setStatus.timer = window.setTimeout(() => {
           status.textContent = '';
-        }, 2500);
+        }, 2600);
+      }
+
+      function setMicStatus(message) {
+        if (micStatus) micStatus.textContent = message;
       }
 
       function updateCounts() {
-        inputCount.textContent = `${input.value.length} characters`;
-        resultCount.textContent = `${lastResult.length} characters`;
+        if (inputCount) inputCount.textContent = `${input.value.length} characters`;
+        if (resultCount) resultCount.textContent = `${lastResult.length} characters`;
       }
 
       function renderResult(value) {
@@ -543,21 +544,10 @@
       function setLevel(nextLevel) {
         level = nextLevel;
         localStorage.setItem('babyBabbleLevel', level);
-  
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      let recognition = null;
-      let listening = false;
-      let finalTranscript = '';
 
-      function setMicStatus(message) {
-        if (micStatus) micStatus.textContent = message;
-      }
-
-      function setListeningState(isListening) {
-        listening = isListening;
-        if (!voiceBtn) return;
-        voiceBtn.classList.toggle('listening', isListening);
-        voiceBtn.textContent = isListening ? '⏹ Stop Listening' : '🎤 Start Talking';
+        levelButtons.forEach((button) => {
+          button.classList.toggle('active', button.dataset.level === level);
+        });
       }
 
       function addVoiceText(text) {
@@ -567,30 +557,38 @@
         if (voiceMode && voiceMode.value === 'replace') {
           input.value = clean;
         } else {
-          const existing = input.value.trim();
-          input.value = existing ? `${existing} ${clean}` : clean;
+          const current = input.value.trim();
+          input.value = current ? `${current} ${clean}` : clean;
         }
 
         localStorage.setItem('babyBabbleDraft', input.value);
         updateCounts();
       }
 
-      function enableKeyboardDictationFallback() {
+      function setListeningState(active) {
+        listening = active;
         if (!voiceBtn) return;
-        voiceBtn.disabled = false;
-        voiceBtn.textContent = '🎤 Use iPhone Dictation';
-        voiceBtn.addEventListener('click', () => {
-          input.focus();
-          setMicStatus('Tap the microphone on Apple’s keyboard and start speaking.');
-        });
-        setMicStatus('Direct voice recognition is unavailable here. Apple keyboard dictation still works.');
+        voiceBtn.classList.toggle('listening', active);
+        voiceBtn.textContent = active ? '⏹ Stop Listening' : '🎤 Start Talking';
       }
 
-      try {
-        if (!SpeechRecognition) {
-          enableKeyboardDictationFallback();
-        } else {
-          recognition = new SpeechRecognition();
+      function enableVoiceInput() {
+        if (!voiceBtn) return;
+
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!Recognition) {
+          voiceBtn.textContent = '🎤 Use iPhone Dictation';
+          voiceBtn.addEventListener('click', () => {
+            input.focus();
+            setMicStatus('Use the microphone button on Apple’s keyboard.');
+          });
+          setMicStatus('Tap the text box and use Apple keyboard dictation.');
+          return;
+        }
+
+        try {
+          recognition = new Recognition();
           recognition.lang = 'en-AU';
           recognition.continuous = false;
           recognition.interimResults = true;
@@ -606,6 +604,7 @@
 
             for (let i = event.resultIndex; i < event.results.length; i += 1) {
               const transcript = event.results[i][0].transcript;
+
               if (event.results[i].isFinal) {
                 finalTranscript += `${transcript} `;
               } else {
@@ -618,14 +617,14 @@
 
           recognition.onerror = (event) => {
             const messages = {
-              'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
-              'service-not-allowed': 'Speech recognition is unavailable in this browser.',
+              'not-allowed': 'Microphone permission was blocked.',
+              'service-not-allowed': 'Voice recognition is unavailable here.',
               'no-speech': 'No speech was detected. Try again.',
               'audio-capture': 'No microphone was found.',
-              'network': 'Speech recognition needs a network connection on this device.'
+              'network': 'Voice recognition needs an internet connection.'
             };
 
-            setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
+            setMicStatus(messages[event.error] || 'Voice input stopped.');
             setListeningState(false);
           };
 
@@ -636,6 +635,7 @@
             } else if (listening) {
               setMicStatus('Listening stopped.');
             }
+
             setListeningState(false);
           };
 
@@ -648,117 +648,15 @@
             try {
               recognition.start();
             } catch (error) {
-              setMicStatus('Voice input could not start. Tap the text box and use Apple keyboard dictation.');
+              input.focus();
+              setMicStatus('Use Apple keyboard dictation if voice input does not start.');
             }
           });
+        } catch (error) {
+          voiceBtn.textContent = '🎤 Use iPhone Dictation';
+          voiceBtn.addEventListener('click', () => input.focus());
+          setMicStatus('Tap the text box and use Apple keyboard dictation.');
         }
-      } catch (error) {
-        enableKeyboardDictationFallback();
-      }
-
-      levelButtons.forEach((button) => {
-          button.classList.toggle('active', button.dataset.level === level);
-        });
-      }
-
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      let recognition = null;
-      let listening = false;
-      let finalTranscript = '';
-
-      function setMicStatus(message) {
-        micStatus.textContent = message;
-      }
-
-      function setListeningState(isListening) {
-        listening = isListening;
-        voiceBtn.classList.toggle('listening', isListening);
-        voiceBtn.textContent = isListening ? '⏹ Stop Listening' : '🎤 Start Talking';
-      }
-
-      function addVoiceText(text) {
-        const clean = String(text || '').trim();
-        if (!clean) return;
-
-        if (voiceMode.value === 'replace') {
-          input.value = clean;
-        } else {
-          const existing = input.value.trim();
-          input.value = existing ? `${existing} ${clean}` : clean;
-        }
-
-        localStorage.setItem('babyBabbleDraft', input.value);
-        updateCounts();
-      }
-
-      if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-AU';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-          finalTranscript = '';
-          setListeningState(true);
-          setMicStatus('Listening… speak normally.');
-        };
-
-        recognition.onresult = (event) => {
-          let interim = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += `${transcript} `;
-            } else {
-              interim += transcript;
-            }
-          }
-
-          setMicStatus(interim ? `Hearing: ${interim}` : 'Listening…');
-        };
-
-        recognition.onerror = (event) => {
-          const messages = {
-            'not-allowed': 'Microphone permission was blocked. Allow microphone access for this site in Safari settings.',
-            'service-not-allowed': 'Speech recognition is unavailable in this browser.',
-            'no-speech': 'No speech was detected. Try again.',
-            'audio-capture': 'No microphone was found.',
-            'network': 'Speech recognition needs a network connection on this device.'
-          };
-
-          setMicStatus(messages[event.error] || `Voice input stopped: ${event.error}`);
-          setListeningState(false);
-        };
-
-        recognition.onend = () => {
-          if (finalTranscript.trim()) {
-            addVoiceText(finalTranscript);
-            setMicStatus('Voice text added.');
-          } else if (listening) {
-            setMicStatus('Listening stopped.');
-          }
-
-          setListeningState(false);
-        };
-
-        voiceBtn.addEventListener('click', () => {
-          if (listening) {
-            recognition.stop();
-            return;
-          }
-
-          try {
-            recognition.start();
-          } catch {
-            setMicStatus('Voice input is already starting. Please wait a moment.');
-          }
-        });
-      } else {
-        voiceBtn.disabled = true;
-        voiceBtn.textContent = '🎤 Use iPhone Dictation';
-        setMicStatus('Direct voice recognition is unavailable here. Tap inside the text box and use the microphone on Apple’s keyboard.');
       }
 
       levelButtons.forEach((button) => {
@@ -783,15 +681,23 @@
         }
 
         try {
-          await navigator.clipboard.writeText(lastResult);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(lastResult);
+          } else {
+            throw new Error('Clipboard API unavailable');
+          }
+
           setStatus('Copied to clipboard.');
-        } catch {
-          const area = document.createElement('textarea');
-          area.value = lastResult;
-          document.body.appendChild(area);
-          area.select();
+        } catch (error) {
+          const helper = document.createElement('textarea');
+          helper.value = lastResult;
+          helper.setAttribute('readonly', '');
+          helper.style.position = 'fixed';
+          helper.style.opacity = '0';
+          document.body.appendChild(helper);
+          helper.select();
           document.execCommand('copy');
-          area.remove();
+          helper.remove();
           setStatus('Copied to clipboard.');
         }
       });
@@ -806,11 +712,17 @@
           try {
             await navigator.share({ text: lastResult });
           } catch (error) {
-            if (error.name !== 'AbortError') setStatus('Could not open sharing.');
+            if (error && error.name !== 'AbortError') {
+              setStatus('Sharing could not open.');
+            }
           }
         } else {
-          await navigator.clipboard.writeText(lastResult);
-          setStatus('Copied. Paste it into Messenger.');
+          try {
+            await navigator.clipboard.writeText(lastResult);
+            setStatus('Copied. Paste it into Messenger.');
+          } catch (error) {
+            setStatus('Use Copy, then paste it into Messenger.');
+          }
         }
       });
 
@@ -820,11 +732,16 @@
           return;
         }
 
-        speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(lastResult);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.2;
-        speechSynthesis.speak(utterance);
+        if (!('speechSynthesis' in window)) {
+          setStatus('Speech playback is unavailable on this device.');
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance(lastResult);
+        speech.rate = 0.9;
+        speech.pitch = 1.15;
+        window.speechSynthesis.speak(speech);
       });
 
       document.getElementById('clearBtn').addEventListener('click', () => {
@@ -833,18 +750,21 @@
         renderResult('');
         updateCounts();
         input.focus();
+        setStatus('Cleared.');
       });
 
-      setLevel(level);
+      setLevel(['light', 'medium', 'full'].includes(level) ? level : 'medium');
       input.value = localStorage.getItem('babyBabbleDraft') || '';
       updateCounts();
+      enableVoiceInput();
 
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
+          navigator.serviceWorker.register('./sw.js?v=6').catch(() => {});
         });
       }
     })();
   </script>
+
 </body>
 </html>
